@@ -1,13 +1,19 @@
-FROM alpine:3
+FROM node:lts-alpine as nodebuild
 
-ARG CODECOV_VERSION=0.1.17
+RUN apk add --no-cache git; \
+  git clone https://github.com/codecov/uploader.git /tmp/codecov-master; \
+  yarn global add pkg; \
+  cd /tmp/codecov-master; \
+  yarn install; \
+  yarn build; \
+  pkg . --targets node14-alpine --output out/codecov
 
-RUN apk add --no-cache curl git; \
-  curl -Os https://uploader.codecov.io/v${CODECOV_VERSION}/alpine/codecov; \
-  mv codecov /bin; \
-  chmod +x /bin/codecov; \
-  apk del curl
+FROM alpine:3.14
 
-ENV CODECOV_TOKEN=''
+COPY --from=nodebuild /tmp/codecov-master/out/codecov /bin
+
+RUN apk add --no-cache git; \
+  mv /bin/uploader /bin/codecov; \
+  chmod +x /bin/codecov
 
 ENTRYPOINT [ "codecov", "-t", "$CODECOV_TOKEN" ]
